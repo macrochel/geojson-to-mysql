@@ -2,25 +2,25 @@ import mysql.connector, os, shortuuid, json, gzip, shutil
 from dotenv import load_dotenv
 from requests import get
 
-def download(url, file_name): #func for download by url
+def download(url, file_name): # Function for downloading a file
     with open(file_name, "wb") as file:
         response = get(f"{url}?token={token}")
         file.write(response.content)
 
 load_dotenv()
 token = os.getenv("API_TOKEN")
-links = ["https://batch.openaddresses.io/api/job/322463/output/source.geojson.gz"] #here your links
+links = ["https://batch.openaddresses.io/api/job/322463/output/source.geojson.gz"] # Add here your links
 
-#MySQL DB properities
+# MySQL DB properities
 mydb = mysql.connector.connect(
   host=os.getenv("DB_HOST"),
   user=os.getenv("DB_USER"),
   password=os.getenv("DB_PASSWORD"))
 mycursor = mydb.cursor()
 mycursor.execute("USE OpenAdresses")
-#mycursor.execute("DROP TABLE Adresses")
+# mycursor.execute("DROP TABLE Adresses")
 
-#creating table, if it doesn't exist
+# Creating table, if it doesn't exist
 mycursor.execute("""
 CREATE TABLE IF NOT EXISTS Adresses(
   hash VARCHAR(100), 
@@ -41,13 +41,13 @@ for i in links:
     gzName = shortuuid.uuid()
     download(i, f"{gzName}.gz")
 
-    #unarchive
+    # Unarchive
     with gzip.open(f"{gzName}.gz", "rb") as f_in:
       with open(f"{gzName}.json", "wb") as f_out:
           shutil.copyfileobj(f_in, f_out)
           os.remove(f"{gzName}.gz")
 
-    #json fileds reading, and appending to list
+    # Json fileds reading, and appending to the list
     with open(f"{gzName}.json") as f:
       data = json.loads("[" + f.read().replace("}\n{", "},\n{") + "]")
     rows = []
@@ -65,7 +65,7 @@ for i in links:
           f'{field["geometry"]["coordinates"][0]}, {field["geometry"]["coordinates"][1]}',
       ))
 
-    #insert data to MySQL
+    # Insert data to the database
     sql = ("INSERT IGNORE INTO Adresses (hash, number, street, unit, city, district, region, postcode, id, coordinates) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
     mycursor.executemany(sql, rows)
     os.remove(f"{gzName}.json")
